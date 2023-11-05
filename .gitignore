@@ -2,3 +2,5 @@ credentials.json
 settings.ini
 token.pickle
 .idea\*
+query.json
+data.json

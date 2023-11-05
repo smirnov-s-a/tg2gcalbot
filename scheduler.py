@@ -11,7 +11,7 @@ from google.auth.transport.requests import Request
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 
-def book_timeslot(booking_name, booking_date, booking_time, booking_description, input_email):
+def book_timeslot(booking_name, booking_date, booking_time, booking_long, booking_description, input_email):
     """Shows basic usage of the Google Calendar API.
     Prints the start and name of the next 10 events on the user's calendar.
     """
@@ -38,7 +38,8 @@ def book_timeslot(booking_name, booking_date, booking_time, booking_description,
 
     # --------------------- Manipulating Booking Time ----------------------------
     start_time = str(booking_date) + 'T' + booking_time + ':00+03:00'
-    end_time = str(booking_date) + 'T' + str(int(booking_time[:2]) + 1) + ':00:00+03:00'
+    end_time_long = booking_time+booking_long
+    end_time = str(booking_date) + 'T' + str(int(booking_time[:2]) + int(booking_long)) + ':00:00+03:00'
     # ----------------------------------------------------------------------------
 
     # Call the Calendar API
@@ -123,6 +124,7 @@ if __name__ == '__main__':
     input_email = 'test@test.ru'
     booking_time = '14:00'
     booking_date = '2024-01-01'
-    booking_name = 'Test'
-    booking_description = 'just test'
-    result = book_timeslot(booking_name, booking_date, booking_time, booking_description, input_email)
+    booking_long = '1'
+    booking_name = 'Event'
+    booking_description = 'Sent from telegram'
+    result = book_timeslot(booking_name, booking_date, booking_time, booking_long, booking_description, input_email)
