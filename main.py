@@ -51,6 +51,84 @@ def sendMessage(chat_id, text_message, markup_text=''):
     response = requests.get(url)
     return response
 
+def setDate(chat_id):
+    text_message = 'Выберите дату'
+    current_date = datetime.datetime.now()
+    keyboard = {'inline_keyboard': [
+            [{'text': 'Сегодня','callback_data': str(current_date.date())}, {'text': 'Завтра','callback_data': str(current_date.date()+ datetime.timedelta(days=1))}],
+            #[{'text': 'В пн'}, {'text': 'В сб'}]
+        ]}
+    response = sendMessage(chat_id, text_message, keyboard)
+    return response
+
+def setTime(chat_id,selected_date=''):
+    text_message = 'Выберите время или введите вручную'
+    current_time = datetime.datetime.now()
+    current_date = datetime.date.today()
+
+    if current_date == selected_date:
+       current_hour = str(current_time)[11:13]
+    else:
+        current_hour = 0
+    # ----------- Chunk of if statement to determine which inline keyboard to reply user ----------------
+    if int(current_hour) < 8:
+        keyboard = {'inline_keyboard': [
+            [{'text': '08:00', 'callback_data': '08:00'}, {'text': '10:00', 'callback_data': '10:00'}],
+            [{'text': '12:00', 'callback_data': '12:00'}, {'text': '14:00', 'callback_data': '14:00'}],
+            [{'text': '16:00', 'callback_data': '16:00'}, {'text': '18:00', 'callback_data': '18:00'}],
+            [{'text': '20:00', 'callback_data': '20:00'}, {'text': '22:00', 'callback_data': '22:00'}],
+        ]}
+    elif 8 <= int(current_hour) < 10:
+        keyboard = {'inline_keyboard': [
+            [{'text': '10:00'}],
+            [{'text': '12:00'}], [{'text': '14:00'}],
+            [{'text': '16:00'}], [{'text': '18:00'}],
+            [{'text': '20:00'}], [{'text': '22:00'}],
+        ]}
+    elif 10 <= int(current_hour) < 12:
+        keyboard = {'inline_keyboard': [
+            [{'text': '12:00'}], [{'text': '14:00'}],
+            [{'text': '16:00'}], [{'text': '18:00'}],
+            [{'text': '20:00'}], [{'text': '22:00'}],
+        ]}
+    elif 12 <= int(current_hour) < 14:
+        keyboard = {'inline_keyboard': [
+            [{'text': '14:00'}],
+            [{'text': '16:00'}], [{'text': '18:00'}],
+            [{'text': '20:00'}], [{'text': '22:00'}],
+        ]}
+    elif 14 <= int(current_hour) < 16:
+        keyboard = {'inline_keyboard': [
+            [{'text': '16:00'}], [{'text': '18:00'}],
+            [{'text': '20:00'}], [{'text': '22:00'}],
+        ]}
+    elif 16 <= int(current_hour) < 18:
+        keyboard = {'inline_keyboard': [
+            [{'text': '18:00'}],
+            [{'text': '20:00'}], [{'text': '22:00'}],
+        ]}
+    elif 18 <= int(current_hour) < 20:
+        keyboard = {'inline_keyboard': [
+            [{'text': '20:00'}], [{'text': '22:00'}],
+        ]}
+    elif 20 <= int(current_hour) < 22:
+        keyboard = {'inline_keyboard': [
+            [{'text': '22:00'}],
+        ]}
+    else:
+        return sendMessage(chat_id, 'Выберите другой день')
+    response = sendMessage(chat_id, text_message, keyboard)
+    return response
+
+def setLong(chat_id):
+    text_message = 'Выберите продолжительность'
+    keyboard = {'inline_keyboard': [
+            [{'text': '1 час','callback_data': '1'}, {'text': '2 часа','callback_data': '2'}],
+            [{'text': '4 часа', 'callback_data': '4'}, {'text': '8 часов', 'callback_data': '8'}],
+        ]}
+    response = sendMessage(chat_id, text_message, keyboard)
+    return response
+
 #проверка что заполнены все критичные данные события
 def eventCheck(event):
     if event.get('name') !='' and event.get('date') !='' and event.get('time') !='' and event.get('long') !=''  :
@@ -84,34 +162,34 @@ def setEvent(chat_id, event, email):
         mode = 'start'
     else:
         sendMessage(chat_id, "Ошибка добавления")
-        mode = 'name'
+        mode = 'menu'
     return mode
 
 #Основное меню бота
 def showMainMenu(chat_id, event, eventReady):
-    comment_message = 'описание '
+    comment_message = 'Описание '
     if event.get('comment') != '':
         comment_message = comment_message + ' →'
-    long_message = 'длина '
+    long_message = 'Длина '
     if event.get('long') != '':
         long_message = long_message + event.get('long') + ' ч'
 
     if event.get('name') != '':
         if eventReady:
-            text_message = 'Добавить параметры события ' + event.get('name')
+            text_message = 'Измените параметры события ' + event.get('name')
             inline_keyboard = {'inline_keyboard': [
-                [{'text': 'дата ' + event.get('date'), 'callback_data': 'EventDate'},
-                {'text': 'время ' + event.get('time'), 'callback_data': 'EventTime'}],
+                [{'text': 'Дата ' + event.get('date'), 'callback_data': 'EventDate'},
+                {'text': 'Время ' + event.get('time'), 'callback_data': 'EventTime'}],
                 [{'text': long_message, 'callback_data': 'EventLong'},
                 {'text': comment_message, 'callback_data': 'EventComment'}],
                 [{'text': 'Сброс', 'callback_data': 'EventReset'}, {'text': 'Изменить название', 'callback_data': 'EventName'}],
-                [{'text': 'Сохранить', 'callback_data': 'EventSet'},],
+                [{'text': 'Создать событие', 'callback_data': 'EventSet'},],
             ]}
         else:
-            text_message = 'Добавить параметры события ' + event.get('name')
+            text_message = 'Измените параметры события ' + event.get('name')
             inline_keyboard = {'inline_keyboard': [
-                [{'text': 'дата ' + event.get('date'), 'callback_data': 'EventDate'},
-                {'text': 'время ' + event.get('time'), 'callback_data': 'EventTime'}],
+                [{'text': 'Дата ' + event.get('date'), 'callback_data': 'EventDate'},
+                {'text': 'Время ' + event.get('time'), 'callback_data': 'EventTime'}],
                 [{'text': long_message, 'callback_data': 'EventLong'},
                 {'text': comment_message, 'callback_data': 'EventComment'}],
                 [{'text': 'Сброс', 'callback_data': 'EventReset'}, {'text': 'Изменить название', 'callback_data': 'EventName'}],
@@ -126,8 +204,8 @@ def showMainMenu(chat_id, event, eventReady):
 
 #общий цикл
 def run():
-    event = {'name':'', 'date': '', 'time': '', 'long':'', 'comment':''}
-    update_id = 0
+    event = {'name':'', 'date': '', 'time': '', 'long':'1', 'comment':''}
+    update_id = getLastMessage()[1]
     mode = 'start'
     while True:
         messageType = getLastMessage()[0]
@@ -170,7 +248,7 @@ def run():
 
             if mode == 'start':
 
-                event = {'name': '', 'date': '', 'time': '', 'long': '', 'comment': ''}
+                event = {'name': '', 'date': '', 'time': '', 'long': '1', 'comment': ''}
                 mode = 'name'
 
             if mode == 'name':
@@ -191,16 +269,31 @@ def run():
                 if messageType == 'text' and message_text != '':
                     event.update(date=message_text)
                     mode = 'menu'
+                elif messageType == 'query' and message_text != 'EventDate':
+                    event.update(date=message_text)
+                    mode = 'menu'
+                else:
+                    setDate(chat_id)
             elif mode == 'time':
                 if messageType == 'text' and message_text != '':
                     event.update(time=message_text)
                     mode = 'menu'
+                elif messageType == 'query' and message_text != 'EventTime':
+                    event.update(time=message_text)
+                    mode = 'menu'
+                else:
+                    setTime(chat_id, event.get('date'))
+
+
             elif mode == 'long':
                 if messageType == 'text' and message_text != '':
                     event.update(long=message_text)
                     mode = 'menu'
-                if messageType == 'query':
-                    event.update(long='1')
+                elif messageType == 'query' and message_text != 'EventLong':
+                    event.update(long=message_text)
+                    mode = 'menu'
+                else:
+                    setLong(chat_id)
             elif mode == 'comment':
                 if messageType == 'text' and message_text != '':
                     event.update(comment=message_text)
@@ -214,19 +307,12 @@ def run():
                     else:
                         sendMessage(chat_id, 'Введите описание добавляемого события:')
             elif mode == 'set':
-                setEvent(chat_id, event, email)
+                mode=setEvent(chat_id, event, email)
 
 
             if mode == 'menu':
-                # if event.get('name') == '':
-                #     event.update(name=message_text)
                eventReady = eventCheck(event)
                showMainMenu(chat_id, event, eventReady) #eventCheck(event))
-
-
-
-
-
 
 if __name__ == "__main__":
     run()
