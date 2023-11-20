@@ -1,5 +1,6 @@
 import requests
 import datetime
+import pytz
 import os.path
 import configparser
 import json
@@ -14,6 +15,8 @@ try:
     print('settings.ini succesfully loaded')
 except Exception as e:
     print(e)
+start_time = datetime.datetime.now()
+start_time = str(start_time+ datetime.timedelta(hours=3))
 
 #получение последнего сообщения
 def getLastMessage():
@@ -218,6 +221,9 @@ def run():
             elif message_text == '/start':
                 mode = 'start'
                 message_text = ''
+            elif message_text == '/ontime':
+              sendMessage(chat_id, 'Бот запущен: '+str(start_time))
+              message_text = ''
             elif message_text == '/cancel':
                 mode = 'start'
                 message_text = ''
@@ -307,7 +313,10 @@ def run():
                     else:
                         sendMessage(chat_id, 'Введите описание добавляемого события:')
             elif mode == 'set':
-                mode=setEvent(chat_id, event, email)
+                if setEvent(chat_id, event, email):
+                    mode = 'start'
+                else:
+                    mode = 'menu'
 
 
             if mode == 'menu':

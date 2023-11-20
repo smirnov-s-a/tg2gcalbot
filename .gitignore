@@ -4,3 +4,4 @@ token.pickle
 .idea\*
 query.json
 data.json
+token.pickle.json
