@@ -282,6 +282,9 @@ def run():
                     setDate(chat_id)
             elif mode == 'time':
                 if messageType == 'text' and message_text != '':
+                    # добавление минут для введённых часов
+                    if isinstance(int(message_text), int):
+                        message_text = message_text + ':00'
                     event.update(time=message_text)
                     mode = 'menu'
                 elif messageType == 'query' and message_text != 'EventTime':
