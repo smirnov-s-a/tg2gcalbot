@@ -3,6 +3,7 @@ import datetime
 import requests
 import pickle
 import os.path
+import generate_user_credentials
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -18,7 +19,7 @@ def sendMessage(chat_id, text_message):
     text_message=text_message.replace('/auth/', '%3A%2F%2Fauth%3A%2F%2F')
     text_message=text_message.replace('&', '%26')
     text_message=text_message.replace('https%3A%2F%2Fwww', 'https%253A%252F%252Fwww')
-    url = 'https://api.telegram.org/bot5855042022:AAECakCVuC9qFPxjO8GHXxvvstr2cKTNOd4/sendmessage?chat_id=' + str(chat_id) + '&text='+text_message
+    url = 'https://api.telegram.org/bot/sendmessage?chat_id=' + str(chat_id) + '&text='+text_message
     response = requests.get(url)
     return response
 
@@ -35,21 +36,14 @@ def book_timeslot(booking_name, booking_date, booking_time, booking_long, bookin
     if os.path.exists(user_pickle):
         with open(user_pickle, 'rb') as token:
             creds = pickle.load(token)
+            print('pickle ok')
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                credentials_name, SCOPES)
-
-            auth_url, _ = flow.authorization_url(prompt='consent')
-            link_text = 'Please go to this URL: {}'.format(auth_url)
-            print(link_text)
-            ##sendMessage(chat_id, link_text)
-
+            flow = InstalledAppFlow.from_client_secrets_file(credentials_name, SCOPES)
             creds = flow.run_local_server(port=auth_port)
-
         # Save the credentials for the next run
         with open(user_pickle, 'wb') as token:
             pickle.dump(creds, token)

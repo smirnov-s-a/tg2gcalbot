@@ -11,3 +11,5 @@ token.pickle.json
 *.pyc
 __pycache__/scheduler.cpython-39.pyc
 .idea/misc.xml
+google-ads.yaml
+*.pickle
