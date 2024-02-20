@@ -1,6 +1,5 @@
 import requests
 import datetime
-import pytz
 import os.path
 import configparser
 import json
@@ -10,22 +9,40 @@ try:
     config = configparser.ConfigParser()  # создаём объекта парсера
     config.read(os.path.dirname(os.path.realpath(__file__))+"/settings.ini")  # читаем конфиг
     api_key = config["Main"]["Token"]
-    allowed_chat = config["Users"]["AllowedUsers"]
-    email = config["Users"]["AllowedMail"]
+    email = 'test'
     print('settings.ini succesfully loaded')
 except Exception as e:
     print(e)
 start_time = datetime.datetime.now()
 start_time = str(start_time+ datetime.timedelta(hours=3))
+user_mode = {}
 
 #получение последнего сообщения
 def getLastMessage():
+
     url = "https://api.telegram.org/bot" + str(api_key) + "/getUpdates?limit=1&offset=-1"
     response = requests.get(url)
     data = response.json()
-    with open('data.json', 'w') as file:
-         json.dump(data, file)
-    if re.search('callback_query', str(data)):
+
+    #with open('data.json', 'w') as file:
+    #    json.dump(data, file)
+    if re.search('document', str(data)):
+        messageType = 'document'
+        chat_id = data['result'][len(data['result']) - 1]['message']['chat']['id']
+        file_id = data['result'][len(data['result']) - 1]['message']['document']['file_id']
+
+#https:// api.telegram.org / bot5855042022: AAECakCVuC9qFPxjO8GHXxvvstr2cKTNOd4 / getFile?file_id = BQACAgIAAxkBAAIEwmXTJsY7zRo6hY2e2HlA9jgoWmI7AAKBQAAChzaZSio2WxESRKakNAQ
+        file_url = 'https://api.telegram.org/bot' + str(api_key) + '/getFile?file_id='+file_id
+        response = requests.get(file_url)
+        file_data = response.json()
+        file_url = 'https://api.telegram.org/file/bot'+str(api_key)+'/'+file_data['result']['file_path']
+        response = requests.get(file_url)
+        with open(str(chat_id) + '.token.pickle', 'wb') as file:
+            file.write(response.content)
+        chat_id = data['result'][len(data['result']) - 1]['message']['chat']['id']
+        update_id = data['result'][len(data['result']) - 1]['update_id']
+        return messageType, update_id, chat_id
+    elif re.search('callback_query', str(data)):
         messageType = 'query'
         chat_id = data['result'][len(data['result']) - 1]['callback_query']['from']['id']
         update_id = data['result'][len(data['result']) - 1]['update_id']
@@ -132,6 +149,38 @@ def setLong(chat_id):
     response = sendMessage(chat_id, text_message, keyboard)
     return response
 
+def parseTime(input_text):
+    input_text = re.sub('\D', ':', input_text)
+    timestring = ''
+
+    state = 'false'
+    if re.fullmatch('[0-2]?[0-9]:[0-5][0-9]', input_text):
+        timestring=re.findall('[0-2]?[0-9]:[0-5][0-9]', input_text)[0]
+        state = 'true'
+    elif re.search('[0-2]?[0-9]', input_text):
+        timestring= re.findall('[0-2]?[0-9]', input_text)[0] + ':00'
+        state = 'true'
+    elif re.search('[0-9]?[0-9]?[0-9]', input_text):
+        timestring='00:'+re.findall('[0-9]?[0-9]?[0-9]', input_text)[0]
+        state = 'true'
+    print(timestring)
+    return state, timestring
+
+def parseDate(input_text):
+    #символы одни
+    state = 'false'
+    input_text = re.sub('\D', '.', input_text)
+    date_pattern = '\d{1,2}.\d\d.?\d{0,4}' # 11.22.3333
+    input_words = re.split(r' ', input_text)
+    date = re.search(date_pattern, input_text)
+
+    datestring = re.search(date_pattern, input_text)
+    input_string = re.sub(date_pattern, '', input_text)
+    #print(datestring[0] if datestring else 'Not found')
+    if datestring:
+        state = 'true'
+    return state, datestring[0]
+
 #проверка что заполнены все критичные данные события
 def eventCheck(event):
     if event.get('name') !='' and event.get('date') !='' and event.get('time') !='' and event.get('long') !=''  :
@@ -157,9 +206,9 @@ def showEventInfo(chat_id, event):
     ]}
     sendMessage(chat_id, text_message, inline_keyboard)
 
-def setEvent(chat_id, event, email):
+def setEvent(chat_id, event):
     sendMessage(chat_id, "Внесение события…")
-    response = book_timeslot(event.get('name'), str(event.get('date')), event.get('time'), event.get('long'), event.get('comment'), email)
+    response = book_timeslot(event.get('name'), str(event.get('date')), event.get('time'), event.get('long'), event.get('comment'), chat_id)
     if response == True:
         sendMessage(chat_id,'Событие "' + event.get('name') + '" добавлено, состоится ' + str(event.get('date')) + ' в ' + str(event.get('time')))
         mode = 'start'
@@ -208,123 +257,129 @@ def showMainMenu(chat_id, event, eventReady):
 #общий цикл
 def run():
     event = {'name':'', 'date': '', 'time': '', 'long':'1', 'comment':''}
+    user_event = {}
     update_id = getLastMessage()[1]
-    mode = 'start'
+    #mode = 'start'
     while True:
         messageType = getLastMessage()[0]
         # если новое сообщение прилетело
         if update_id != getLastMessage()[1] and messageType in ['text','query']:
             messageType, update_id, chat_id, message_text = getLastMessage()
+            if chat_id not in user_mode:
+                user_mode[chat_id] = 'start'
+                user_event[chat_id] = event
 
-            if chat_id != int(allowed_chat):
-                sendMessage(chat_id, 'You are not allowed')
-            elif message_text == '/start':
-                mode = 'start'
+            if message_text == '/start':
+                user_mode[chat_id] = 'start'
                 message_text = ''
             elif message_text == '/ontime':
               sendMessage(chat_id, 'Бот запущен: '+str(start_time))
               message_text = ''
+            elif message_text == '/delete_me':
+                if os.path.exists(str(chat_id) + '.token.pickle'):
+                    os.remove(str(chat_id) + '.token.pickle')
+                sendMessage(chat_id, 'Данные авторизации удалены')
+                message_text = ''
             elif message_text == '/cancel':
-                mode = 'start'
+                user_mode[chat_id] = 'start'
                 message_text = ''
             elif message_text == '/help':
                 sendMessage(chat_id, 'Write @kennich')
                 message_text = ''
             elif messageType == 'query':
                 if message_text == 'Cancel':
-                    mode = 'menu'
+                    user_mode[chat_id] = 'menu'
                 if message_text == 'EventReset':
-                    mode = 'start'
+                    user_mode[chat_id] = 'start'
                 elif message_text == 'EventName':
-                    mode = 'name'
+                    user_mode[chat_id] = 'name'
                 elif message_text == 'EventDate':
-                    mode = 'date'
+                    user_mode[chat_id] = 'date'
                 elif message_text == 'EventTime':
-                    mode = 'time'
+                    user_mode[chat_id] = 'time'
                 elif message_text == 'EventLong':
-                    mode = 'long'
+                    user_mode[chat_id] = 'long'
                 elif message_text == 'EventComment':
-                    mode = 'comment'
+                    user_mode[chat_id] = 'comment'
                 elif message_text == 'EventSet':
-                    mode = 'set'
+                    user_mode[chat_id] = 'set'
 
 
-            # if mode != 'menu':
+            # if user_mode[chat_id] != 'menu':
             #     sendMessage(chat_id, mode)
 
-            if mode == 'start':
+            if user_mode[chat_id] == 'start':
 
-                event = {'name': '', 'date': '', 'time': '', 'long': '1', 'comment': ''}
-                mode = 'name'
+                user_event[chat_id] = {'name': '', 'date': '', 'time': '', 'long': '1', 'comment': ''}
+                user_mode[chat_id] = 'name'
+            if user_mode[chat_id] == 'name':
 
-            if mode == 'name':
-                #print(message_text)
                 if messageType == 'text' and message_text != '':
-                    event.update(name=message_text)
-                    mode = 'menu'
+                    user_event[chat_id].update(name=message_text)
+                    user_mode[chat_id] = 'menu'
                 else:
-                    if event.get('name') != '':
+                    if user_event[chat_id]['name'] != '':
                         inline_keyboard = {'inline_keyboard': [
                         [{'text': '← Назад', 'callback_data': 'Cancel'}],
                         ]}
-                        sendMessage(chat_id, 'Текущее название: ' + event.get('name') + '. Изменить?', inline_keyboard)
+                        sendMessage(chat_id, 'Текущее название: ' + user_event[chat_id].get('name') + '. Изменить?', inline_keyboard)
                     else:
                         sendMessage(chat_id, 'Введите название добавляемого события:')
 
-            elif mode == 'date':
+            elif user_mode[chat_id] == 'date':
                 if messageType == 'text' and message_text != '':
-                    event.update(date=message_text)
-                    mode = 'menu'
+                    if parseDate(message_text)[0]:
+                        user_event[chat_id].update(date=parseDate(message_text)[1])
+                        user_mode[chat_id] = 'menu'
                 elif messageType == 'query' and message_text != 'EventDate':
-                    event.update(date=message_text)
-                    mode = 'menu'
+                    user_event[chat_id].update(date=message_text)
+                    user_mode[chat_id] = 'menu'
                 else:
                     setDate(chat_id)
-            elif mode == 'time':
+            elif user_mode[chat_id] == 'time':
                 if messageType == 'text' and message_text != '':
-                    # добавление минут для введённых часов
-                    if isinstance(int(message_text), int):
-                        message_text = message_text + ':00'
-                    event.update(time=message_text)
-                    mode = 'menu'
+                    if parseTime(message_text)[0]:
+                        user_event[chat_id].update(time=parseTime(message_text)[1])
+                        user_mode[chat_id] = 'menu'
                 elif messageType == 'query' and message_text != 'EventTime':
-                    event.update(time=message_text)
-                    mode = 'menu'
+                    user_event[chat_id].update(time=message_text)
+                    user_mode[chat_id] = 'menu'
                 else:
-                    setTime(chat_id, event.get('date'))
+                    setTime(chat_id, user_event[chat_id].get('date'))
 
-
-            elif mode == 'long':
+            elif user_mode[chat_id] == 'long':
                 if messageType == 'text' and message_text != '':
-                    event.update(long=message_text)
-                    mode = 'menu'
+                    if parseTime(message_text)[0]:
+                        user_event[chat_id].update(long=parseTime(message_text)[1])
+                        user_mode[chat_id] = 'menu'
+                    else:
+                        setLong(chat_id)
                 elif messageType == 'query' and message_text != 'EventLong':
-                    event.update(long=message_text)
-                    mode = 'menu'
+                    user_event[chat_id].update(long=message_text)
+                    user_mode[chat_id] = 'menu'
                 else:
                     setLong(chat_id)
-            elif mode == 'comment':
+            elif user_mode[chat_id] == 'comment':
                 if messageType == 'text' and message_text != '':
-                    event.update(comment=message_text)
-                    mode = 'menu'
+                    user_event[chat_id].update(comment=message_text)
+                    user_mode[chat_id] = 'menu'
                 else:
-                    if event.get('comment') != '':
+                    if user_event[chat_id].get('comment') != '':
                         inline_keyboard = {'inline_keyboard': [
                             [{'text': '← Назад', 'callback_data': 'Cancel'}],
                         ]}
-                        sendMessage(chat_id, 'Текущее описание: ' + event.get('comment') + '. Изменить?', inline_keyboard)
+                        sendMessage(chat_id, 'Текущее описание: ' + user_event[chat_id].get('comment') + '. Изменить?', inline_keyboard)
                     else:
                         sendMessage(chat_id, 'Введите описание добавляемого события:')
-            elif mode == 'set':
-                if setEvent(chat_id, event, email):
-                    mode = 'start'
+            elif user_mode[chat_id] == 'set':
+                if setEvent(chat_id, user_event[chat_id]):
+                    user_mode[chat_id] = 'start'
                 else:
-                    mode = 'menu'
+                    user_mode[chat_id] = 'menu'
 
-
-            if mode == 'menu':
-               eventReady = eventCheck(event)
-               showMainMenu(chat_id, event, eventReady) #eventCheck(event))
+            if user_mode[chat_id] == 'menu':
+               eventReady = eventCheck(user_event[chat_id])
+               showMainMenu(chat_id, user_event[chat_id], eventReady) #eventCheck(event))
 
 if __name__ == "__main__":
     run()

@@ -5,3 +5,9 @@ token.pickle
 query.json
 data.json
 token.pickle.json
+*.json
+.idea/misc.xml
+*.pyc
+*.pyc
+__pycache__/scheduler.cpython-39.pyc
+.idea/misc.xml
