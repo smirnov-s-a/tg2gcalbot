@@ -39,23 +39,23 @@ def getLastMessage():
             file.write(response.content)
         chat_id = data['result'][len(data['result']) - 1]['message']['chat']['id']
         update_id = data['result'][len(data['result']) - 1]['update_id']
-        return messageType, update_id, chat_id, file_data['result']['file_path']
+        message_text = file_data['result']['file_path']
     elif re.search('callback_query', str(data)):
         messageType = 'query'
         chat_id = data['result'][len(data['result']) - 1]['callback_query']['from']['id']
         update_id = data['result'][len(data['result']) - 1]['update_id']
         message_text = data['result'][len(data['result']) - 1]['callback_query']['data']
-        return messageType, update_id, chat_id, message_text
     elif re.search('message', str(data)):
         messageType = 'text'
         message_text = data['result'][len(data['result']) - 1]['message']['text']
         chat_id = data['result'][len(data['result']) - 1]['message']['chat']['id']
         update_id = data['result'][len(data['result']) - 1]['update_id']
-        return messageType, update_id, chat_id, message_text
     else:
         messageType = 'other'
+        message_text = ''
+        chat_id = '0'
         update_id = '0'
-        return messageType, update_id
+    return messageType, update_id, chat_id, message_text
 
 #отправка сообщения в чат
 def sendMessage(chat_id, text_message, markup_text=''):
@@ -148,36 +148,43 @@ def setLong(chat_id):
     return response
 
 def parseTime(input_text):
-    input_text = re.sub('\D', ':', input_text)
-    timestring = ''
-
     state = 'false'
-    if re.fullmatch('[0-2]?[0-9]:[0-5][0-9]', input_text):
-        timestring=re.findall('[0-2]?[0-9]:[0-5][0-9]', input_text)[0]
-        state = 'true'
-    elif re.search('[0-2]?[0-9]', input_text):
-        timestring= re.findall('[0-2]?[0-9]', input_text)[0] + ':00'
-        state = 'true'
-    elif re.search('[0-9]?[0-9]?[0-9]', input_text):
-        timestring='00:'+re.findall('[0-9]?[0-9]?[0-9]', input_text)[0]
-        state = 'true'
-    print(timestring)
-    return state, timestring
+    try:
+        input_text = re.sub('\D', ':', input_text)
+        timestring = ''
+
+        state = 'false'
+        if re.fullmatch('[0-2]?[0-9]:[0-5][0-9]', input_text):
+            timestring=re.findall('[0-2]?[0-9]:[0-5][0-9]', input_text)[0]
+            state = 'true'
+        elif re.search('[0-2]?[0-9]', input_text):
+            timestring= re.findall('[0-2]?[0-9]', input_text)[0] + ':00'
+            state = 'true'
+        elif re.search('[0-9]?[0-9]?[0-9]', input_text):
+            timestring='00:'+re.findall('[0-9]?[0-9]?[0-9]', input_text)[0]
+            state = 'true'
+        return state, timestring
+    except:
+        return state, ''
 
 def parseDate(input_text):
     #символы одни
     state = 'false'
-    input_text = re.sub('\D', '.', input_text)
-    date_pattern = '\d{1,2}.\d\d.?\d{0,4}' # 11.22.3333
-    input_words = re.split(r' ', input_text)
-    date = re.search(date_pattern, input_text)
+    try:
+        input_text = re.sub('\D', '.', input_text)
+        date_pattern = '\d{1,2}.\d\d.?\d{0,4}' # 11.22.3333
+        input_words = re.split(r' ', input_text)
+        date = re.search(date_pattern, input_text)
 
-    datestring = re.search(date_pattern, input_text)
-    input_string = re.sub(date_pattern, '', input_text)
-    #print(datestring[0] if datestring else 'Not found')
-    if datestring:
-        state = 'true'
-    return state, datestring[0]
+        datestring = re.search(date_pattern, input_text)
+        input_string = re.sub(date_pattern, '', input_text)
+        #print(datestring[0] if datestring else 'Not found')
+        if datestring:
+            state = 'true'
+        return state, datestring[0]
+    except:
+        return state, ''
+
 
 #проверка что заполнены все критичные данные события
 def eventCheck(event):
@@ -206,12 +213,19 @@ def showEventInfo(chat_id, event):
 
 def setEvent(chat_id, event):
     sendMessage(chat_id, "Внесение события…")
-    response = book_timeslot(event.get('name'), str(event.get('date')), event.get('time'), event.get('long'), event.get('comment'), chat_id)
-    if response == True:
-        sendMessage(chat_id,'Событие "' + event.get('name') + '" добавлено, состоится ' + str(event.get('date')) + ' в ' + str(event.get('time')))
-        mode = 'start'
-    else:
-        sendMessage(chat_id, "Ошибка добавления")
+    try:
+        response = book_timeslot(event.get('name'), str(event.get('date')), event.get('time'), event.get('long'), event.get('comment'), chat_id)
+        if response == True:
+            sendMessage(chat_id,'Событие "' + event.get('name') + '" добавлено, состоится ' + str(event.get('date')) + ' в ' + str(event.get('time')))
+            mode = 'start'
+        else:
+            sendMessage(chat_id, "Ошибка добавления")
+            mode = 'menu'
+
+    except:
+        sendMessage(chat_id, "Опачки! :(")
+        eventReady = eventCheck(user_event[chat_id])
+        showMainMenu(chat_id, user_event[chat_id], eventReady)
         mode = 'menu'
     return mode
 
@@ -283,42 +297,43 @@ def run():
                         user_mode[chat_id] = 'start'
                         user_event[chat_id] = event
 
-                #проверяем команды
-                if message_text == '/start':
-                    user_mode[chat_id] = 'start'
-                    message_text = ''
-                if message_text == '/ontime':
-                  sendMessage(chat_id, 'Бот запущен: '+str(start_time))
-                  message_text = ''
-                if message_text == '/delete_me':
-                    if os.path.exists(str(chat_id) + '.token.pickle'):
-                        os.remove(str(chat_id) + '.token.pickle')
-                    sendMessage(chat_id, 'Данные авторизации удалены')
-                    message_text = ''
-                    del user_mode[chat_id]
-                if message_text == '/cancel':
-                    user_mode[chat_id] = 'start'
-                    message_text = ''
-                if message_text == '/help':
-                    sendMessage(chat_id, 'Write @kennich')
-                    message_text = ''
-                if messageType == 'query':
-                    if message_text == 'Cancel':
-                        user_mode[chat_id] = 'menu'
-                    if message_text == 'EventReset':
+                if chat_id in user_mode:
+                    #проверяем команды
+                    if message_text == '/start':
                         user_mode[chat_id] = 'start'
-                    elif message_text == 'EventName':
-                        user_mode[chat_id] = 'name'
-                    elif message_text == 'EventDate':
-                        user_mode[chat_id] = 'date'
-                    elif message_text == 'EventTime':
-                        user_mode[chat_id] = 'time'
-                    elif message_text == 'EventLong':
-                        user_mode[chat_id] = 'long'
-                    elif message_text == 'EventComment':
-                        user_mode[chat_id] = 'comment'
-                    elif message_text == 'EventSet':
-                        user_mode[chat_id] = 'set'
+                        message_text = ''
+                    if message_text == '/ontime':
+                      sendMessage(chat_id, 'Бот запущен: '+str(start_time))
+                      message_text = ''
+                    if message_text == '/delete_me':
+                        if os.path.exists(str(chat_id) + '.token.pickle'):
+                            os.remove(str(chat_id) + '.token.pickle')
+                        sendMessage(chat_id, 'Данные авторизации удалены')
+                        message_text = ''
+                        del user_mode[chat_id]
+                    if message_text == '/cancel':
+                        user_mode[chat_id] = 'start'
+                        message_text = ''
+                    if message_text == '/help':
+                        sendMessage(chat_id, 'Write @kennich')
+                        message_text = ''
+                    if messageType == 'query':
+                        if message_text == 'Cancel':
+                            user_mode[chat_id] = 'menu'
+                        if message_text == 'EventReset':
+                            user_mode[chat_id] = 'start'
+                        elif message_text == 'EventName':
+                            user_mode[chat_id] = 'name'
+                        elif message_text == 'EventDate':
+                            user_mode[chat_id] = 'date'
+                        elif message_text == 'EventTime':
+                            user_mode[chat_id] = 'time'
+                        elif message_text == 'EventLong':
+                            user_mode[chat_id] = 'long'
+                        elif message_text == 'EventComment':
+                            user_mode[chat_id] = 'comment'
+                        elif message_text == 'EventSet':
+                            user_mode[chat_id] = 'set'
 
                 #выполнение условий по командам
                 if chat_id in user_mode:
