@@ -14,16 +14,6 @@ SCOPES = ['https://www.googleapis.com/auth/calendar']
 auth_port=52179
 credentials_name='credentials-web.json'
 
-def sendMessage(chat_id, text_message):
-    text_message=text_message.replace('&prompt=consent', '')
-    text_message=text_message.replace('/auth/', '%3A%2F%2Fauth%3A%2F%2F')
-    text_message=text_message.replace('&', '%26')
-    text_message=text_message.replace('https%3A%2F%2Fwww', 'https%253A%252F%252Fwww')
-    url = 'https://api.telegram.org/bot/sendmessage?chat_id=' + str(chat_id) + '&text='+text_message
-    response = requests.get(url)
-    return response
-
-
 def book_timeslot(booking_name, booking_date, booking_time, booking_long, booking_description, chat_id):
     """Shows basic usage of the Google Calendar API.
     Prints the start and name of the next 10 events on the user's calendar.
