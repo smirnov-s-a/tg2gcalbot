@@ -169,19 +169,31 @@ def parseTime(input_text):
 
 def parseDate(input_text):
     #символы одни
+    date_pattern = r'\d{1,2}.\d\d?\.?\d{0,4}'  # 11.22.3333
     state = 'false'
     try:
         input_text = re.sub('\D', '.', input_text)
-        date_pattern = '\d{1,2}.\d\d.?\d{0,4}' # 11.22.3333
-        input_words = re.split(r' ', input_text)
+        input_text = re.sub('-', '.', input_text)
+        print('инпукт'+input_text)
         date = re.search(date_pattern, input_text)
+        print('дата'+date[0])
+        date_split= re.split(r"\.+", date[0])
+        day=date_split[0]
+        mnth=date_split[1]
+        if len(date_split)==3:
+            year = date_split[2]
+        else:
+            year='2024'
+        print('день' + day+year)
 
-        datestring = re.search(date_pattern, input_text)
-        input_string = re.sub(date_pattern, '', input_text)
-        #print(datestring[0] if datestring else 'Not found')
+
+        print(year+'-'+mnth+'-'+day)
+
+        datestring = year+'-'+mnth+'-'+day
+
         if datestring:
             state = 'true'
-        return state, datestring[0]
+        return state, datestring
     except:
         return state, ''
 
